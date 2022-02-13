@@ -1,0 +1,51 @@
+name: Produce metrics
+outputs:
+- {name: mlpipeline_metrics, type: Metrics}
+implementation:
+  container:
+    image: python:3.7
+    command:
+    - sh
+    - -ec
+    - |
+      program_path=$(mktemp)
+      printf "%s" "$0" > "$program_path"
+      python3 -u "$program_path" "$@"
+    - |
+      def produce_metrics():
+          import json
+
+          accuracy = 0.8
+          metrics = {
+              'metrics': [{
+                  'name': 'accuracy-score', # The name of the metric. Visualized as the column name in the runs table.
+                  'numberValue':  accuracy, # The value of the metric. Must be a numeric value.
+                  'format': "PERCENTAGE",   # The optional format of the metric. Supported values are "RAW" (displayed in raw format) and "PERCENTAGE" (displayed in percentage format).
+              }]
+          }
+          return [json.dumps(metrics)]
+
+      import argparse
+      _parser = argparse.ArgumentParser(prog='Produce metrics', description='')
+      _parser.add_argument("----output-paths", dest="_output_paths", type=str, nargs=1)
+      _parsed_args = vars(_parser.parse_args())
+      _output_files = _parsed_args.pop("_output_paths", [])
+
+      _outputs = produce_metrics(**_parsed_args)
+
+      _output_serializers = [
+          str,
+
+      ]
+
+      import os
+      for idx, output_file in enumerate(_output_files):
+          try:
+              os.makedirs(os.path.dirname(output_file))
+          except OSError:
+              pass
+          with open(output_file, 'w') as f:
+              f.write(_output_serializers[idx](_outputs[idx]))
+    args:
+    - '----output-paths'
+    - {outputPath: mlpipeline_metrics}

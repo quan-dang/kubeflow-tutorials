@@ -1,0 +1,43 @@
+name: Produce html
+outputs:
+- {name: mlpipeline_ui_metadata}
+implementation:
+  container:
+    image: python:3.7
+    command:
+    - sh
+    - -ec
+    - |
+      program_path=$(mktemp)
+      printf "%s" "$0" > "$program_path"
+      python3 -u "$program_path" "$@"
+    - |
+      def _make_parent_dirs_and_return_path(file_path: str):
+          import os
+          os.makedirs(os.path.dirname(file_path), exist_ok=True)
+          return file_path
+
+      def produce_html(mlpipeline_ui_metadata_path):
+          import json
+          import os
+
+          metadata = {
+              'outputs' : [{
+                'type': 'web-app',
+                'storage': 'inline',
+                'source': '<h1>Hello, World!</h1>',
+              }]
+          }
+
+          with open(mlpipeline_ui_metadata_path, 'w') as metadata_file:
+              json.dump(metadata, metadata_file)
+
+      import argparse
+      _parser = argparse.ArgumentParser(prog='Produce html', description='')
+      _parser.add_argument("--mlpipeline-ui-metadata", dest="mlpipeline_ui_metadata_path", type=_make_parent_dirs_and_return_path, required=True, default=argparse.SUPPRESS)
+      _parsed_args = vars(_parser.parse_args())
+
+      _outputs = produce_html(**_parsed_args)
+    args:
+    - --mlpipeline-ui-metadata
+    - {outputPath: mlpipeline_ui_metadata}

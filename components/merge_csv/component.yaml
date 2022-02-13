@@ -1,0 +1,37 @@
+name: Merge csv
+inputs:
+- {name: file, type: Tarball}
+outputs:
+- {name: output_csv, type: CSV}
+implementation:
+  container:
+    image: python:3.7
+    command:
+    - sh
+    - -c
+    - (PIP_DISABLE_PIP_VERSION_CHECK=1 python3 -m pip install --quiet --no-warn-script-location
+      'pandas==1.1.4' || PIP_DISABLE_PIP_VERSION_CHECK=1 python3 -m pip install --quiet
+      --no-warn-script-location 'pandas==1.1.4' --user) && "$0" "$@"
+    - sh
+    - -ec
+    - |
+      program_path=$(mktemp)
+      printf "%s" "$0" > "$program_path"
+      python3 -u "$program_path" "$@"
+    - "def _make_parent_dirs_and_return_path(file_path: str):\n    import os\n   \
+      \ os.makedirs(os.path.dirname(file_path), exist_ok=True)\n    return file_path\n\
+      \ndef merge_csv(file_path,\n              output_csv):\n    import glob\n  \
+      \  import pandas as pd\n    import tarfile\n\n    tarfile.open(name=file_path,\
+      \ mode=\"r|gz\").extractall('data')\n    df = pd.concat(\n      [pd.read_csv(csv_file,\
+      \ header=None) \n       for csv_file in glob.glob('data/*.csv')])\n    df.to_csv(output_csv,\
+      \ index=False, header=False)\n\nimport argparse\n_parser = argparse.ArgumentParser(prog='Merge\
+      \ csv', description='')\n_parser.add_argument(\"--file\", dest=\"file_path\"\
+      , type=str, required=True, default=argparse.SUPPRESS)\n_parser.add_argument(\"\
+      --output-csv\", dest=\"output_csv\", type=_make_parent_dirs_and_return_path,\
+      \ required=True, default=argparse.SUPPRESS)\n_parsed_args = vars(_parser.parse_args())\n\
+      \n_outputs = merge_csv(**_parsed_args)\n"
+    args:
+    - --file
+    - {inputPath: file}
+    - --output-csv
+    - {outputPath: output_csv}

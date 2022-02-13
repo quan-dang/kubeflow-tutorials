@@ -1,0 +1,57 @@
+name: Get csv info
+inputs:
+- {name: input_csv, type: CSV}
+outputs:
+- {name: Output, type: tuple}
+implementation:
+  container:
+    image: python:3.7
+    command:
+    - sh
+    - -c
+    - (PIP_DISABLE_PIP_VERSION_CHECK=1 python3 -m pip install --quiet --no-warn-script-location
+      'pandas==1.1.4' || PIP_DISABLE_PIP_VERSION_CHECK=1 python3 -m pip install --quiet
+      --no-warn-script-location 'pandas==1.1.4' --user) && "$0" "$@"
+    - sh
+    - -ec
+    - |
+      program_path=$(mktemp)
+      printf "%s" "$0" > "$program_path"
+      python3 -u "$program_path" "$@"
+    - |
+      def get_csv_info(input_csv):
+          import pandas as pd
+
+          df = pd.read_csv(input_csv, header=None)
+          print(f"[Debug] df.shape: {df.shape}")
+          return df.shape
+
+      import argparse
+      _parser = argparse.ArgumentParser(prog='Get csv info', description='')
+      _parser.add_argument("--input-csv", dest="input_csv", type=str, required=True, default=argparse.SUPPRESS)
+      _parser.add_argument("----output-paths", dest="_output_paths", type=str, nargs=1)
+      _parsed_args = vars(_parser.parse_args())
+      _output_files = _parsed_args.pop("_output_paths", [])
+
+      _outputs = get_csv_info(**_parsed_args)
+
+      _outputs = [_outputs]
+
+      _output_serializers = [
+          str,
+
+      ]
+
+      import os
+      for idx, output_file in enumerate(_output_files):
+          try:
+              os.makedirs(os.path.dirname(output_file))
+          except OSError:
+              pass
+          with open(output_file, 'w') as f:
+              f.write(_output_serializers[idx](_outputs[idx]))
+    args:
+    - --input-csv
+    - {inputPath: input_csv}
+    - '----output-paths'
+    - {outputPath: Output}

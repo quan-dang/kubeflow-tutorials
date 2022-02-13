@@ -1,0 +1,66 @@
+name: Add
+description: Returns sum of two arguments
+inputs:
+- {name: a, type: Float}
+- {name: b, type: Float}
+outputs:
+- {name: Output, type: Float}
+implementation:
+  container:
+    image: python:3.7
+    command:
+    - sh
+    - -c
+    - (PIP_DISABLE_PIP_VERSION_CHECK=1 python3 -m pip install --quiet --no-warn-script-location
+      'pandas==0.24' || PIP_DISABLE_PIP_VERSION_CHECK=1 python3 -m pip install --quiet
+      --no-warn-script-location 'pandas==0.24' --user) && "$0" "$@"
+    - sh
+    - -ec
+    - |
+      program_path=$(mktemp)
+      printf "%s" "$0" > "$program_path"
+      python3 -u "$program_path" "$@"
+    - |
+      def add(a, b):
+          """Returns sum of two arguments"""
+          return a + b
+
+      def _serialize_float(float_value: float) -> str:
+          if isinstance(float_value, str):
+              return float_value
+          if not isinstance(float_value, (float, int)):
+              raise TypeError('Value "{}" has type "{}" instead of float.'.format(str(float_value), str(type(float_value))))
+          return str(float_value)
+
+      import argparse
+      _parser = argparse.ArgumentParser(prog='Add', description='Returns sum of two arguments')
+      _parser.add_argument("--a", dest="a", type=float, required=True, default=argparse.SUPPRESS)
+      _parser.add_argument("--b", dest="b", type=float, required=True, default=argparse.SUPPRESS)
+      _parser.add_argument("----output-paths", dest="_output_paths", type=str, nargs=1)
+      _parsed_args = vars(_parser.parse_args())
+      _output_files = _parsed_args.pop("_output_paths", [])
+
+      _outputs = add(**_parsed_args)
+
+      _outputs = [_outputs]
+
+      _output_serializers = [
+          _serialize_float,
+
+      ]
+
+      import os
+      for idx, output_file in enumerate(_output_files):
+          try:
+              os.makedirs(os.path.dirname(output_file))
+          except OSError:
+              pass
+          with open(output_file, 'w') as f:
+              f.write(_output_serializers[idx](_outputs[idx]))
+    args:
+    - --a
+    - {inputValue: a}
+    - --b
+    - {inputValue: b}
+    - '----output-paths'
+    - {outputPath: Output}
