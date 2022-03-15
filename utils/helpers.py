@@ -1,3 +1,5 @@
+import logging
+
 def get_or_create_pipeline(client,
                     pipeline_name: str, 
                     pipeline_description: str, 
